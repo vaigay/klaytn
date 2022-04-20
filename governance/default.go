@@ -774,9 +774,15 @@ func (g *Governance) searchCache(num uint64) (uint64, bool) {
 }
 
 func (g *Governance) ReadGovernance(num uint64) (uint64, map[string]interface{}, error) {
-	if g.ChainConfig.Istanbul == nil {
-		logger.Crit("Failed to read governance. ChainConfig.Istanbul == nil")
+	if g.ChainConfig.Clique != nil {
+		logger.Info("Chain config is clique")
 	}
+	//if g.ChainConfig.Istanbul == nil {
+	//	logger.Crit("Failed to read governance. ChainConfig.Istanbul == nil")
+	//}
+	//b, _ := json.MarshalIndent(g, "", "\t")
+	//fmt.Println("Governance ", string(b))
+	//fmt.Println("Current governance size", g.currentSet.Size())
 	blockNum := CalcGovernanceInfoBlock(num, g.Epoch())
 	// Check cache first
 	if gBlockNum, ok := g.searchCache(blockNum); ok {
@@ -1097,6 +1103,9 @@ func (gov *Governance) CommitteeSize() uint64 {
 }
 
 func (gov *Governance) Epoch() uint64 {
+	if gov.ChainConfig.Clique != nil {
+		return gov.ChainConfig.Clique.Epoch
+	}
 	if ret := gov.GetGovernanceValue(params.Epoch); ret == nil {
 		// When a node is initializing, value can be nil
 		return gov.ChainConfig.Istanbul.Epoch
@@ -1105,6 +1114,9 @@ func (gov *Governance) Epoch() uint64 {
 }
 
 func (gov *Governance) ProposerPolicy() uint64 {
+	if gov.GetGovernanceValue(params.Policy) == nil {
+		return 0
+	}
 	return gov.GetGovernanceValue(params.Policy).(uint64)
 }
 

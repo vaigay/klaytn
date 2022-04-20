@@ -150,12 +150,15 @@ func (self *Miner) Start() {
 		return
 	}
 	atomic.StoreInt32(&self.mining, 1)
-
+	//fmt.Println("Wallet size", len(self.backend.AccountManager().Find())
 	if self.worker.nodetype == common.CONSENSUSNODE {
+		fmt.Println(":;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;")
+		fmt.Println(self.rewardbase)
 		logger.Info("Starting mining operation")
 	}
 	self.worker.start()
 	self.worker.commitNewWork()
+	fmt.Println("End ?????????????")
 }
 
 func (self *Miner) Stop() {

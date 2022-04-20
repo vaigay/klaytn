@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -189,6 +190,7 @@ func (sb *backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 
 	// Ensure that the extra data format is satisfied
 	if _, err := types.ExtractIstanbulExtra(header); err != nil {
+		fmt.Println("error ", err)
 		return errInvalidExtraDataFormat
 	}
 	// Ensure that the block's blockscore is meaningful (may not be correct at this point)
@@ -352,6 +354,7 @@ func (sb *backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 // rules of a particular engine. The changes are executed inline.
 func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	// unused fields, force to set to empty
+	fmt.Println("xxxxxxxxxxxxxxqqqqqqqqqqqqqqqqqq")
 	header.Rewardbase = sb.rewardbase
 
 	// copy the parent extra data as the header extra data

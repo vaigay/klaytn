@@ -972,14 +972,14 @@ func (db *Database) Commit(node common.Hash, report bool, blockNum uint64) error
 	memcacheCommitSizeMeter.Mark(int64(nodesSize - db.nodesSize))
 	memcacheCommitNodesMeter.Mark(int64(numNodes - len(db.nodes)))
 
-	localLogger := logger.Info
-	if !report {
-		localLogger = logger.Debug
-	}
-	localLogger("Persisted trie from memory database", "blockNum", blockNum,
-		"updated nodes", numNodes-len(db.nodes), "updated nodes size", nodesSize-db.nodesSize,
-		"time", commitEnd.Sub(commitStart), "gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime,
-		"livenodes", len(db.nodes), "livesize", db.nodesSize)
+	//localLogger := logger.Info
+	//if !report {
+	//	localLogger = logger.Debug
+	//}
+	//localLogger("Persisted trie from memory database", "blockNum", blockNum,
+	//	"updated nodes", numNodes-len(db.nodes), "updated nodes size", nodesSize-db.nodesSize,
+	//	"time", commitEnd.Sub(commitStart), "gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime,
+	//	"livenodes", len(db.nodes), "livesize", db.nodesSize)
 
 	// Reset the garbage collection statistics
 	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0

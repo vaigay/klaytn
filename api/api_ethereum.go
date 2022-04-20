@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/klaytn/klaytn/kerrors"
+	"golang.org/x/crypto/sha3"
 	"math/big"
 	"strconv"
 	"strings"
@@ -29,8 +31,8 @@ import (
 
 	"github.com/klaytn/klaytn/rlp"
 
+	abix "github.com/klaytn/klaytn/abi"
 	"github.com/klaytn/klaytn/accounts/abi"
-
 	"github.com/klaytn/klaytn/blockchain"
 	"github.com/klaytn/klaytn/blockchain/state"
 	"github.com/klaytn/klaytn/blockchain/types"
@@ -55,7 +57,8 @@ const (
 	// There is no POW mining mechanism in Klaytn.
 	ZeroHashrate uint64 = 0
 	// ZeroUncleCount is always zero because there is no uncle blocks in Klaytn.
-	ZeroUncleCount uint = 0
+	ZeroUncleCount     uint = 0
+	GetBlockMethodName      = "getBlock"
 )
 
 var (
@@ -592,6 +595,101 @@ func (diff *EthStateOverride) Apply(state *state.StateDB) error {
 	return nil
 }
 
+func printArgs(args EthTransactionArgs) {
+	fmt.Println("args")
+	fmt.Print("From: ")
+	if args.From != nil {
+		fmt.Println(args.From.Hex())
+	} else {
+		fmt.Println("nil")
+	}
+	fmt.Print("To: ")
+	if args.To != nil {
+		fmt.Println(args.To.Hex())
+	} else {
+		fmt.Println("nil")
+	}
+}
+
+func getMethodId(name string) []byte {
+	signature := []byte(name)
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(signature)
+	methodID := hash.Sum(nil)[:4]
+	return methodID
+}
+
+func middlewareArg(methodId string, dataAdd ...[]byte) EthTransactionArgs {
+	toAddress := common.HexToAddress("0x0000000000000000000000000000000000000600")
+	var data []byte
+	x := getMethodId(methodId)
+	data = append(data, x...)
+	for i := 0; i < len(dataAdd); i++ {
+		data = append(data, dataAdd[i]...)
+	}
+	return EthTransactionArgs{
+		To:   &toAddress,
+		Data: (*hexutil.Bytes)(&data),
+	}
+}
+
+func newETHArgs(data []byte) EthTransactionArgs {
+	toAddress := common.HexToAddress("0x0000000000000000000000000000000000000600")
+	return EthTransactionArgs{
+		To:   &toAddress,
+		Data: (*hexutil.Bytes)(&data),
+	}
+}
+
+func hexNumberToString(hexaString string) string {
+	// replace 0x or 0X with empty String
+	numberStr := strings.Replace(hexaString, "0x", "", -1)
+	numberStr = strings.Replace(numberStr, "0X", "", -1)
+	return numberStr
+}
+
+func (api *EthereumAPI) Middleware(ctx context.Context, argsInput EthTransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *EthStateOverride, gasCap uint64) (hexutil.Bytes, error) {
+	logger.Info("Run Middleware", "To Address", argsInput.To)
+	var arg EthTransactionArgs
+	var addresses []common.Address
+	if argsInput.From != nil {
+		addresses = append(addresses, *argsInput.From)
+	}
+	if argsInput.To != nil {
+		addresses = append(addresses, *argsInput.To)
+	}
+	parsed, err := abi.JSON(strings.NewReader(abix.AbiABI))
+	if err != nil {
+		return nil, kerrors.ErrExecuteMiddleware
+	}
+	data, err := parsed.Pack(GetBlockMethodName, addresses)
+	if err != nil {
+		return nil, kerrors.ErrExecuteMiddleware
+	}
+	arg.To = argsInput.To
+	arg.From = argsInput.From
+	arg.Data = (*hexutil.Bytes)(&data)
+	result, _, status, err := EthDoCall(ctx, api.publicBlockChainAPI.b, arg, blockNrOrHash, overrides, localTxExecutionTime, gasCap)
+	err = blockchain.GetVMerrFromReceiptStatus(status)
+	if err != nil && isReverted(err) && len(result) > 0 {
+		return nil, kerrors.ErrExecuteMiddleware
+	}
+	blockAddress := common.BytesToAddress(result)
+	fmt.Println("Block Address: ", blockAddress.Hex())
+	if argsInput.From != nil {
+		fmt.Println("From Address: ", argsInput.From.Hex())
+	}
+	fmt.Println("To Address: ", argsInput.To.Hex())
+	fmt.Println("Default: ", common.HexToAddress("0x0").Hex())
+	if blockAddress.Hex() != common.HexToAddress("0x0").Hex() {
+		if argsInput.From != nil && blockAddress.Hex() == argsInput.From.Hex() {
+			return common.CopyBytes(result), kerrors.ErrDestinationAddressIsBlocked
+		}
+		return common.CopyBytes(result), kerrors.ErrDestinationAddressIsBlocked
+	}
+	return common.CopyBytes(result), nil
+}
+
 // Call executes the given transaction on the state for the given block number.
 //
 // Additionally, the caller can specify a batch of contract for fields overriding.
@@ -599,10 +697,17 @@ func (diff *EthStateOverride) Apply(state *state.StateDB) error {
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
 func (api *EthereumAPI) Call(ctx context.Context, args EthTransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *EthStateOverride) (hexutil.Bytes, error) {
+	logger.Info("Call ETH")
 	gasCap := uint64(0)
 	if rpcGasCap := api.publicBlockChainAPI.b.RPCGasCap(); rpcGasCap != nil {
 		gasCap = rpcGasCap.Uint64()
 	}
+
+	resultMiddleWare, err := api.Middleware(ctx, args, blockNrOrHash, overrides, gasCap)
+	if err != nil {
+		return resultMiddleWare, err
+	}
+
 	result, _, status, err := EthDoCall(ctx, api.publicBlockChainAPI.b, args, blockNrOrHash, overrides, localTxExecutionTime, gasCap)
 	if err != nil {
 		return nil, err
@@ -612,12 +717,17 @@ func (api *EthereumAPI) Call(ctx context.Context, args EthTransactionArgs, block
 	if err != nil && isReverted(err) && len(result) > 0 {
 		return nil, newRevertError(result)
 	}
-	return common.CopyBytes(result), err
+	response := common.CopyBytes(result)
+	fmt.Println(response)
+	fmt.Println(string(response))
+	return response, err
 }
 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
 func (api *EthereumAPI) EstimateGas(ctx context.Context, args EthTransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
+	logger.Info("Estimate Gas ETH")
+	printArgs(args)
 	bNrOrHash := rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
@@ -1286,6 +1396,7 @@ func (args *EthTransactionArgs) ToTransaction() *types.Transaction {
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (api *EthereumAPI) SendTransaction(ctx context.Context, args EthTransactionArgs) (common.Hash, error) {
+	logger.Info("Send Transaction", "-------------222222222222222-========")
 	if args.Nonce == nil {
 		// Hold the addresses mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
@@ -1340,13 +1451,62 @@ func (api *EthereumAPI) FillTransaction(ctx context.Context, args EthTransaction
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (api *EthereumAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (common.Hash, error) {
+
+	logger.Info("Raw Transaction", input.String())
+	gasCap := uint64(0)
+	if rpcGasCap := api.publicBlockChainAPI.b.RPCGasCap(); rpcGasCap != nil {
+		gasCap = rpcGasCap.Uint64()
+	}
+	tx := new(types.Transaction)
 	if 0 < input[0] && input[0] < 0x7f {
 		inputBytes := []byte{byte(types.EthereumTxTypeEnvelope)}
 		inputBytes = append(inputBytes, input...)
-		return api.publicTransactionPoolAPI.SendRawTransaction(ctx, inputBytes)
+		input = inputBytes
 	}
+	if err := rlp.DecodeBytes(input, tx); err != nil {
+		return common.Hash{}, err
+	}
+	senderAddress := common.BytesToAddress(input[:32])
+	arg := EthTransactionArgs{
+		From: &senderAddress,
+		To:   tx.To(),
+	}
+	_, err := api.Middleware(ctx, arg, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), nil, gasCap)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	//c, _ := api.ChainId()
+	//fmt.Println("ChainID", c)
+	//signer := types.LatestSignerForChainID(c.ToInt())
+	//s, _ := types.Sender(signer, tx)
+	//fmt.Println("Tx Hash", tx.Hash())
+	//fmt.Println("10000000000000000003333333333333333333011111111", s.Hex())
+	//methods := []string{"getWalletAddress(address)"}
+	//for i := 0; i < len(methods); i++ {
+	//	md := middlewareArg(methods[i])
+	//	if i == len(methods)-1 {
+	//		xl := common.Bytes2Hex(input[:32])
+	//		fmt.Println("sender address ...............", xl)
+	//		paddedAddress := input[:32]
+	//		md = middlewareArg(methods[i], paddedAddress)
+	//	}
+	//
+	//	resultMiddleware, _, status, err := EthDoCall(ctx, api.publicBlockChainAPI.b, md, rpc.NewBlockNumberOrHashWithNumber(rpc.LatestBlockNumber), nil, localTxExecutionTime, gasCap)
+	//	err = blockchain.GetVMerrFromReceiptStatus(status)
+	//	if err != nil && isReverted(err) && len(resultMiddleware) > 0 {
+	//		return common.Hash{}, newRevertError(resultMiddleware)
+	//	}
+	//	hx := (hexutil.Bytes)(resultMiddleware)
+	//	fmt.Println(hx.String())
+	//	//output, err := strconv.ParseUint(hexNumberToString(hx.String()), 16, 64)
+	//	if err != nil {
+	//		fmt.Println("err x??: ", err)
+	//	}
+	//	fmt.Printf("Result Middleware [%v]: %v \n", i, hexNumberToString(hx.String()))
+	//}
+
 	// legacy transaction
-	return api.publicTransactionPoolAPI.SendRawTransaction(ctx, input)
+	return api.publicTransactionPoolAPI.SendRawTransaction(ctx, tx)
 }
 
 // Sign calculates an ECDSA signature for:
@@ -1509,7 +1669,9 @@ func (api *EthereumAPI) rpcMarshalBlock(block *types.Block, inclTx, fullTx bool)
 }
 
 func EthDoCall(ctx context.Context, b Backend, args EthTransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *EthStateOverride, timeout time.Duration, globalGasCap uint64) ([]byte, uint64, uint, error) {
-	defer func(start time.Time) { logger.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		fmt.Println("Executing EVM call finished 1111111", "runtime", time.Since(start))
+	}(time.Now())
 
 	st, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if st == nil || err != nil {
@@ -1538,6 +1700,7 @@ func EthDoCall(ctx context.Context, b Backend, args EthTransactionArgs, blockNrO
 		return nil, 0, 0, err
 	}
 	msg, err := args.ToMessage(globalGasCap, fixedBaseFee, intrinsicGas)
+	//fmt.Println("message from args: ", msg)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -1545,6 +1708,7 @@ func EthDoCall(ctx context.Context, b Backend, args EthTransactionArgs, blockNrO
 	// but we check in advance here in order to keep StateTransition.TransactionDb method as unchanged as possible
 	// and to clarify error reason correctly to serve eth namespace APIs.
 	// This case is handled by EthDoEstimateGas function.
+	fmt.Printf("message Gas: %v intrinsis Gas: %v", msg.Gas(), intrinsicGas)
 	if msg.Gas() < intrinsicGas {
 		return nil, 0, 0, fmt.Errorf("%w: msg.gas %d, want %d", blockchain.ErrIntrinsicGas, msg.Gas(), intrinsicGas)
 	}

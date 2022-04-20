@@ -385,11 +385,14 @@ func (t *TxInternalDataLegacy) Execute(sender ContractRef, vm VM, stateDB StateD
 	//	logger.Debug("[TxInternalDataLegacy] EVM execution done", "elapsed", elapsed)
 	//}()
 	///////////////////////////////////////////////////////
+	logger.Info("Tx Internal Data Legacy Execute")
 	if t.Recipient == nil {
 		// Sender's nonce will be increased in '`vm.Create()`
+		fmt.Println("Recipient nil")
 		ret, _, usedGas, err = vm.Create(sender, t.Payload, gas, value, params.CodeFormatEVM)
 	} else {
 		stateDB.IncNonce(sender.Address())
+		fmt.Println("Recipient not nil", t.Recipient.Hex())
 		ret, usedGas, err = vm.Call(sender, *t.Recipient, t.Payload, gas, value)
 	}
 	return ret, usedGas, err

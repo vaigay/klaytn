@@ -193,6 +193,7 @@ func (b *SimulatedBackend) NonceAt(ctx context.Context, contract common.Address,
 
 // StorageAt returns the value of key in the storage of an account in the blockchain.
 func (b *SimulatedBackend) StorageAt(ctx context.Context, contract common.Address, key common.Hash, blockNumber *big.Int) ([]byte, error) {
+	fmt.Println("Simulateddddd_-----------------------------")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -358,6 +359,7 @@ func (b *SimulatedBackend) PendingCodeAt(_ context.Context, contract common.Addr
 
 // CallContract executes a contract call.
 func (b *SimulatedBackend) CallContract(ctx context.Context, call klaytn.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	fmt.Println("Call Contract Simulated with call: ", call)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

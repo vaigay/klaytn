@@ -1115,6 +1115,7 @@ func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	if poolSize >= pool.config.ExecSlotsAll+pool.config.NonExecSlotsAll {
 		return fmt.Errorf("txpool is full: %d", poolSize)
 	}
+	fmt.Println("Add Local --------------------------------------", tx.ValidatedSender().Hex())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -1167,7 +1168,7 @@ func (pool *TxPool) checkAndAddTxs(txs []*types.Transaction, local bool) []error
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	senderCacher.recover(pool.signer, []*types.Transaction{tx})
-
+	//pool.add
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 

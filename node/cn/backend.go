@@ -23,6 +23,7 @@ package cn
 import (
 	"errors"
 	"fmt"
+	"github.com/klaytn/klaytn/consensus/clique"
 	"math/big"
 	"os/exec"
 	"runtime"
@@ -203,31 +204,33 @@ func New(ctx *node.ServiceContext, config *Config) (*CN, error) {
 	if err := checkSyncMode(config); err != nil {
 		return nil, err
 	}
-
+	fmt.Println("Is private ? ...........................", config.Istanbul)
 	chainDB := CreateDB(ctx, config, "chaindata")
 
 	chainConfig, genesisHash, genesisErr := blockchain.SetupGenesisBlock(chainDB, config.Genesis, config.NetworkId, config.IsPrivate, false)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
-
+	fmt.Println("Node service+++++++++++++++++++++++", ctx)
 	setEngineType(chainConfig)
 
 	// load governance state
 	governance := governance.NewGovernanceInitialize(chainConfig, chainDB)
-
 	// Set latest unitPrice/gasPrice
 	chainConfig.UnitPrice = governance.UnitPrice()
 	config.GasPrice = new(big.Int).SetUint64(chainConfig.UnitPrice)
 	logger.Info("Initialised chain configuration", "config", chainConfig)
+	//b, _ := json.MarshalIndent(config, "", "\t")
+	//fmt.Println("Config: ", string(b))
 
 	cn := &CN{
-		config:            config,
-		chainDB:           chainDB,
-		chainConfig:       chainConfig,
-		eventMux:          ctx.EventMux,
-		accountManager:    ctx.AccountManager,
-		engine:            CreateConsensusEngine(ctx, config, chainConfig, chainDB, governance, ctx.NodeType()),
+		config:         config,
+		chainDB:        chainDB,
+		chainConfig:    chainConfig,
+		eventMux:       ctx.EventMux,
+		accountManager: ctx.AccountManager,
+		//engine:         CreateCliqueConsensusEngine(chainConfig, chainDB, config),
+		//engine:            CreateConsensusEngine(ctx, config, chainConfig, chainDB, governance, ctx.NodeType()),
 		networkId:         config.NetworkId,
 		gasPrice:          config.GasPrice,
 		rewardbase:        config.Rewardbase,
@@ -237,6 +240,27 @@ func New(ctx *node.ServiceContext, config *Config) (*CN, error) {
 		governance:        governance,
 	}
 
+	//if config.{
+	//	cn.engine = CreateCliqueConsensusEngine(chainConfig, chainDB, config)
+	//}
+	if cn.chainConfig.Clique != nil {
+		cn.engine = CreateCliqueConsensusEngine(chainConfig, chainDB, config)
+		var cli *clique.Clique
+		if c, ok := cn.engine.(*clique.Clique); ok {
+			cli = c
+			fmt.Println("Is clique")
+		}
+		if cli != nil {
+			wallet, err := cn.accountManager.Find(accounts.Account{Address: cn.rewardbase})
+			if wallet == nil || err != nil {
+				logger.Crit("Get rewardbase eror")
+			}
+			fmt.Println("Interface wallet (((((((((((((((((((())))))))))))))))))", wallet.Accounts())
+			cli.Authorize(cn.rewardbase, wallet.SignData)
+		}
+	} else {
+		cn.engine = CreateConsensusEngine(ctx, config, chainConfig, chainDB, governance, ctx.NodeType())
+	}
 	// istanbul BFT. Derive and set node's address using nodekey
 	if cn.chainConfig.Istanbul != nil {
 		governance.SetNodeAddress(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey))
@@ -266,6 +290,7 @@ func New(ctx *node.ServiceContext, config *Config) (*CN, error) {
 	governance.SetBlockchain(cn.blockchain)
 	// Synchronize proposerpolicy & useGiniCoeff
 	if cn.blockchain.Config().Istanbul != nil {
+		fmt.Println(cn.blockchain.Config().Istanbul)
 		cn.blockchain.Config().Istanbul.ProposerPolicy = governance.ProposerPolicy()
 	}
 	if cn.blockchain.Config().Governance.Reward != nil {
@@ -339,7 +364,7 @@ func New(ctx *node.ServiceContext, config *Config) (*CN, error) {
 	// NOTE-Klaytn Now we use latest unitPrice
 	//         So let's override gpoParams.Default with config.GasPrice
 	gpoParams.Default = config.GasPrice
-
+	fmt.Println("Size api: (((((((((((((((((())))))))))))))))) ", len(cn.APIs()))
 	cn.APIBackend.gpo = gasprice.NewOracle(cn.APIBackend, gpoParams, cn.txPool)
 	//@TODO Klaytn add core component
 	cn.addComponent(cn.blockchain)
@@ -402,6 +427,7 @@ func (s *CN) setAcceptTxs() error {
 
 // setRewardWallet sets reward base and reward base wallet if the node is CN.
 func (s *CN) setRewardWallet() error {
+	logger.Info("Node type--------------------------------", s.protocolManager.NodeType().String())
 	if s.protocolManager.NodeType() == common.CONSENSUSNODE {
 		wallet, err := s.RewardbaseWallet()
 		if err != nil {
@@ -410,6 +436,8 @@ func (s *CN) setRewardWallet() error {
 			s.protocolManager.SetRewardbaseWallet(wallet)
 		}
 		s.protocolManager.SetRewardbase(s.rewardbase)
+	} else {
+		logger.Info("Not consensus node")
 	}
 	return nil
 }
@@ -460,6 +488,10 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *Config, chainConfig
 		chainConfig.Governance = params.GetDefaultGovernanceConfig(params.UseIstanbul)
 	}
 	return istanbulBackend.New(config.Rewardbase, &config.Istanbul, ctx.NodeKey(), db, gov, nodetype)
+}
+
+func CreateCliqueConsensusEngine(chainConfig *params.ChainConfig, db database.DBManager, config *Config) consensus.Engine {
+	return clique.New(config.Rewardbase, chainConfig.Clique, db)
 }
 
 // APIs returns the collection of RPC services the ethereum package offers.
@@ -569,11 +601,13 @@ func (s *CN) Rewardbase() (eb common.Address, err error) {
 func (s *CN) RewardbaseWallet() (accounts.Wallet, error) {
 	rewardBase, err := s.Rewardbase()
 	if err != nil {
+		logger.Info("rewardbase Wallet ", "error", err)
 		return nil, err
 	}
 
 	account := accounts.Account{Address: rewardBase}
 	wallet, err := s.AccountManager().Find(account)
+	s.AccountManager()
 	if err != nil {
 		logger.Error("find err", "err", err)
 		return nil, err
@@ -594,6 +628,7 @@ func (s *CN) SetRewardbase(rewardbase common.Address) {
 }
 
 func (s *CN) StartMining(local bool) error {
+	fmt.Println("Start Mining ....")
 	if local {
 		// If local (CPU) mining is started, we can disable the transaction rejection
 		// mechanism introduced to speed sync times. CPU mining on mainnet is ludicrous

@@ -1226,7 +1226,7 @@ func (srv *BaseServer) Start() (err error) {
 	var (
 		conn      *net.UDPConn
 		realaddr  *net.UDPAddr
-		unhandled chan discover.ReadPacket
+		unhandled = make(chan discover.ReadPacket, 100)
 	)
 
 	if !srv.NoDiscovery {
@@ -1273,6 +1273,7 @@ func (srv *BaseServer) Start() (err error) {
 
 		ntab, err := discover.ListenUDP(&cfg)
 		if err != nil {
+			fmt.Println("Listen UDP rrrrr")
 			return err
 		}
 		srv.ntab = ntab

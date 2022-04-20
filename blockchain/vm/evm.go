@@ -62,6 +62,7 @@ func isProgramAccount(evm *EVM, caller common.Address, addr common.Address, db S
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
+	logger.Info("Run EVM", "contract code address", contract.CodeAddr.Hex())
 	if contract.CodeAddr != nil {
 		precompiles := evm.GetPrecompiledContractMap(contract.CallerAddress)
 		if p := precompiles[*contract.CodeAddr]; p != nil {
@@ -204,6 +205,7 @@ func (evm *EVM) Cancelled() bool {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller types.ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+	logger.Info("EVM Call", "address: ", addr, "Caller address", caller.Address(), "Caller FeePayer", caller.FeePayer())
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}

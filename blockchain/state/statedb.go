@@ -352,9 +352,19 @@ func (self *StateDB) GetCodeHash(addr common.Address) common.Hash {
 // GetState retrieves a value from the given account's storage trie.
 func (self *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	stateObject := self.getStateObject(addr)
+	//fmt.Printf("---------------Address------------------- %v\n", addr.Hex())
+	//fmt.Println("Sate: ", stateObject)
 	if stateObject != nil {
+
+		//fmt.Println("Origin Value ", len(stateObject.originStorage))
+		//for k, v := range self.stateObjectsDirty {
+		//	fmt.Println("key: ", k)
+		//	fmt.Println("value:", v)
+		//	fmt.Println("-----------------------------------------------------------")
+		//}
 		return stateObject.GetState(self.db, hash)
 	}
+	//fmt.Println("++++++++++++++++++++No state object+++++++++++++++++++++++")
 	return common.Hash{}
 }
 

@@ -21,6 +21,7 @@
 package work
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -181,7 +182,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, rewardbase c
 		nodetype:    nodetype,
 		rewardbase:  rewardbase,
 	}
-
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = backend.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
@@ -232,13 +232,19 @@ func (self *worker) start() {
 	defer self.mu.Unlock()
 
 	atomic.StoreInt32(&self.mining, 1)
-
+	fmt.Println("2222222222222222222")
+	fmt.Printf("Engine consensus %T\n", self.engine)
+	//_, ok := self.engine.(consensus.Istanbul)
 	// istanbul BFT
-	if istanbul, ok := self.engine.(consensus.Istanbul); ok {
-		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)
-	}
+	//fmt.Printf("oke 1 %v\n", ok)
 
+	_, ok2 := self.engine.(consensus.Engine)
+	fmt.Printf("oke 2 %v\n", ok2)
+	/*if ok {
+		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)
+	}*/
 	// spin up agents
+	fmt.Println("Agent size: ", len(self.agents))
 	for agent := range self.agents {
 		agent.Start()
 	}
@@ -333,6 +339,7 @@ func (self *worker) update() {
 			return
 		}
 	}
+	fmt.Println("End update header")
 }
 
 func (self *worker) wait(TxResendUseLegacy bool) {
@@ -388,12 +395,13 @@ func (self *worker) wait(TxResendUseLegacy bool) {
 					l.BlockHash = block.Hash()
 				}
 			}
+			//start := time.Now()
 			work.stateMu.Lock()
 			for _, log := range work.state.Logs() {
 				log.BlockHash = block.Hash()
 			}
 
-			start := time.Now()
+			//start := time.Now()
 			result, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
 			work.stateMu.Unlock()
 			if err != nil {
@@ -404,7 +412,7 @@ func (self *worker) wait(TxResendUseLegacy bool) {
 				}
 				continue
 			}
-			blockWriteTime := time.Since(start)
+			//blockWriteTime := time.Since(start)
 
 			// TODO-Klaytn-Issue264 If we are using istanbul BFT, then we always have a canonical chain.
 			//         Later we may be able to refine below code.
@@ -434,8 +442,8 @@ func (self *worker) wait(TxResendUseLegacy bool) {
 				logger.Error("Failed to call snapshot", "err", err)
 			}
 
-			logger.Info("Successfully wrote mined block", "num", block.NumberU64(),
-				"hash", block.Hash(), "txs", len(block.Transactions()), "elapsed", blockWriteTime)
+			//logger.Info("Successfully wrote mined block", "num", block.NumberU64(),
+			//	"hash", block.Hash(), "txs", len(block.Transactions()), "elapsed", blockWriteTime)
 			self.chain.PostChainEvents(events, logs)
 
 			// TODO-Klaytn-Issue264 If we are using istanbul BFT, then we always have a canonical chain.
@@ -505,7 +513,7 @@ func (self *worker) commitNewWork() {
 		// wait for a while and get a new timestamp
 		if tstamp < ideal {
 			wait := time.Duration(ideal-tstamp) * time.Second
-			logger.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
+			//logger.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 			time.Sleep(wait)
 
 			tstart = time.Now()    // refresh for metrics
@@ -578,10 +586,10 @@ func (self *worker) commitNewWork() {
 			blockMiningCommitTxTimer.Update(commitTxTime)
 			blockMiningExecuteTxTimer.Update(commitTxTime - trieAccess)
 			blockMiningFinalizeTimer.Update(finalizeTime)
-			logger.Info("Commit new mining work",
-				"number", work.Block.Number(), "hash", work.Block.Hash(),
-				"txs", work.tcount, "elapsed", common.PrettyDuration(blockMiningTime),
-				"commitTime", common.PrettyDuration(commitTxTime), "finalizeTime", common.PrettyDuration(finalizeTime))
+			//logger.Info("Commit new mining work",
+			//	"number", work.Block.Number(), "hash", work.Block.Hash(),
+			//	"txs", work.tcount, "elapsed", common.PrettyDuration(blockMiningTime),
+			//	"commitTime", common.PrettyDuration(commitTxTime), "finalizeTime", common.PrettyDuration(finalizeTime))
 		}
 	}
 
@@ -686,6 +694,7 @@ CommitTransactionLoop:
 			break
 		}
 		numTxsChecked++
+		fmt.Println("Commit Apply  Transaction------------------------------------------------11111111111111111113333333333333: ", tx.ValidatedSender().Hex())
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -704,7 +713,6 @@ CommitTransactionLoop:
 		//}
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
-
 		err, logs := env.commitTransaction(tx, bc, rewardbase, vmConfig)
 		switch err {
 		case blockchain.ErrGasLimitReached:

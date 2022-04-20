@@ -1564,6 +1564,7 @@ func SetKlayConfig(ctx *cli.Context, stack *node.Node, cfg *cn.Config) {
 	raiseFDLimit()
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	fmt.Println("ksssssssssssssssss", ks.Wallets())
 	setServiceChainSigner(ctx, ks, cfg)
 	setRewardbase(ctx, ks, cfg)
 	setTxPool(ctx, &cfg.TxPool)

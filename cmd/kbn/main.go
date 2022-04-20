@@ -148,8 +148,12 @@ func bootnode(ctx *cli.Context) error {
 		Id:              discover.PubkeyID(&bcfg.nodeKey.PublicKey),
 		NodeType:        p2p.ConvertNodeType(common.BOOTNODE),
 		AuthorizedNodes: bcfg.AuthorizedNodes,
+		Unhandled:       make(chan discover.ReadPacket, 100),
 	}
-
+	//b, err := json.MarshalIndent(&cfg, "", "\t")
+	//if err != nil {
+	//	fmt.Println("Error when marshal ident", err.Error())
+	//}
 	tab, err := discover.ListenUDP(&cfg)
 	if err != nil {
 		log.Fatalf("%v", err)

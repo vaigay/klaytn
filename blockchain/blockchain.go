@@ -444,7 +444,7 @@ func (bc *BlockChain) ProposerPolicy() uint64 {
 	bc.chainConfigMu.RLock()
 	defer bc.chainConfigMu.RUnlock()
 
-	return bc.chainConfig.Istanbul.ProposerPolicy
+	return 0
 }
 
 func (bc *BlockChain) SetProposerPolicy(val uint64) {
@@ -1959,10 +1959,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			processFinalizeTime := common.PrettyDuration(procStats.AfterFinalize.Sub(procStats.AfterApplyTxs))
 			validateTime := common.PrettyDuration(afterValidate.Sub(procStats.AfterFinalize))
 			totalTime := common.PrettyDuration(time.Since(bstart))
-			logger.Info("Inserted a new block", "number", block.Number(), "hash", block.Hash(),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", totalTime,
-				"processTxs", processTxsTime, "finalize", processFinalizeTime, "validateState", validateTime,
-				"totalWrite", writeResult.TotalWriteTime, "trieWrite", writeResult.TrieWriteTime)
+			//logger.Info("Inserted a new block", "number", block.Number(), "hash", block.Hash(),
+			//	"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", totalTime,
+			//	"processTxs", processTxsTime, "finalize", processFinalizeTime, "validateState", validateTime,
+			//	"totalWrite", writeResult.TotalWriteTime, "trieWrite", writeResult.TrieWriteTime)
 
 			blockProcessTimer.Update(time.Duration(processTxsTime))
 			blockExecutionTimer.Update(time.Duration(processTxsTime) - trieAccess)
@@ -2548,7 +2548,7 @@ func (bc *BlockChain) SaveTrieNodeCacheToDisk() error {
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func (bc *BlockChain) ApplyTransaction(chainConfig *params.ChainConfig, author *common.Address, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, vmConfig *vm.Config) (*types.Receipt, uint64, *vm.InternalTxTrace, error) {
-
+	logger.Info("Apply Transaction")
 	// TODO-Klaytn We reject transactions with unexpected gasPrice and do not put the transaction into TxPool.
 	//         And we run transactions regardless of gasPrice if we push transactions in the TxPool.
 	/*
@@ -2564,8 +2564,10 @@ func (bc *BlockChain) ApplyTransaction(chainConfig *params.ChainConfig, author *
 	if err := tx.Validate(statedb, blockNumber); err != nil {
 		return nil, 0, nil, err
 	}
-
+	fmt.Println("Fee Payer: ", tx.ValidatedFeePayer().Hex())
 	msg, err := tx.AsMessageWithAccountKeyPicker(types.MakeSigner(chainConfig, header.Number), statedb, blockNumber)
+	fmt.Println("message From 12222", tx.ValidatedSender().Hex())
+	fmt.Println("message From 4444222", tx.ValidatedFeePayer().Hex())
 	if err != nil {
 		return nil, 0, nil, err
 	}
@@ -2574,6 +2576,8 @@ func (bc *BlockChain) ApplyTransaction(chainConfig *params.ChainConfig, author *
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, chainConfig, vmConfig)
+	fmt.Println("message From 2", msg.ValidatedSender().Hex())
+	fmt.Println("message From 44666", msg.ValidatedFeePayer().Hex())
 	// Apply the transaction to the current state (included in the env)
 	_, gas, kerr := ApplyMessage(vmenv, msg)
 	err = kerr.ErrTxInvalid

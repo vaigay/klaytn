@@ -288,7 +288,7 @@ var submitTxCount = 0
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	//submitTxCount++
 	//log.Error("### submitTransaction","tx",submitTxCount)
-
+	fmt.Println("Submit transaction =+++++++++++++++++++==========", tx.ValidatedSender().Hex())
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
@@ -357,11 +357,7 @@ func (s *PublicTransactionPoolAPI) SendTransactionAsFeePayer(ctx context.Context
 
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
-func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	tx := new(types.Transaction)
-	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		return common.Hash{}, err
-	}
+func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, tx *types.Transaction) (common.Hash, error) {
 	return submitTransaction(ctx, s.b, tx)
 }
 

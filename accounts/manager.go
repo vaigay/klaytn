@@ -21,6 +21,7 @@
 package accounts
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"sync"
@@ -167,8 +168,9 @@ func (am *Manager) Wallet(url string) (Wallet, error) {
 func (am *Manager) Find(account Account) (Wallet, error) {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
-
+	fmt.Println("size wallets ", len(am.wallets))
 	for _, wallet := range am.wallets {
+		fmt.Println("Wallet ", wallet)
 		if wallet.Contains(account) {
 			return wallet, nil
 		}

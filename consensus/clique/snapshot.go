@@ -23,6 +23,7 @@ package clique
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/klaytn/klaytn/blockchain/types"
@@ -201,7 +202,6 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	}
 	// Iterate through the headers and create a new snapshot
 	snap := s.copy()
-
 	for _, header := range headers {
 		// Remove any votes on checkpoint blocks
 		number := header.Number.Uint64()
@@ -224,6 +224,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 		for _, recent := range snap.Recents {
 			if recent == signer {
+				fmt.Println("Snap recentttttttttttttttttt", len(snap.Signers))
 				return nil, errUnauthorizedSigner
 			}
 		}

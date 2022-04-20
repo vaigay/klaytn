@@ -230,6 +230,7 @@ func parseComplete(rawurl string) (*Node, error) {
 	// Extract discovery port from query
 	udpPort = tcpPort
 	if qv.Get("discport") != "" {
+		fmt.Println("discovery port: ", qv.Get("discport"))
 		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
 		if err != nil {
 			return nil, errors.New("invalid discport in query")
@@ -238,6 +239,7 @@ func parseComplete(rawurl string) (*Node, error) {
 
 	nType := NodeTypeUnknown
 	if qv.Get("ntype") != "" {
+		fmt.Println("Node type: ", qv.Get("ntype"))
 		nType = ParseNodeType(qv.Get("ntype"))
 	}
 	return NewNode(id, ip, uint16(udpPort), uint16(tcpPort), tcpSubports, nType), nil

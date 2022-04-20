@@ -21,7 +21,9 @@
 package blockchain
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/klaytn/klaytn/blockchain/types"
@@ -157,6 +159,7 @@ func NewStateTransition(evm *vm.EVM, msg Message) *StateTransition {
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message) ([]byte, uint64, kerror) {
+	logger.Info("Apply Message")
 	return NewStateTransition(evm, msg).TransitionDb()
 }
 
@@ -241,6 +244,13 @@ func (st *StateTransition) preCheck() error {
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, kerr kerror) {
+	logger.Info("Transition DB")
+	b, err := json.MarshalIndent(st, "", "\n")
+	if err != nil {
+		fmt.Println("error when marshal state transition", err)
+	}
+
+	fmt.Println("State Transition: ", string(b))
 	if st.evm.IsPrefetching() {
 		st.gas = st.msg.Gas()
 	} else {
@@ -248,9 +258,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, kerr kerr
 			return
 		}
 	}
-
 	msg := st.msg
-
+	fmt.Println("111111111111111: ", msg.ValidatedSender().Hex())
+	fmt.Println("2222222222222222: ", msg.ValidatedFeePayer().Hex())
 	// Pay intrinsic gas.
 	if kerr.ErrTxInvalid = st.useGas(msg.ValidatedIntrinsicGas()); kerr.ErrTxInvalid != nil {
 		kerr.Status = getReceiptStatusFromErrTxFailed(nil)

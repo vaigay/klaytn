@@ -22,6 +22,7 @@ package work
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -80,9 +81,12 @@ func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
 }
 
 func (a *RemoteAgent) Start() {
+	fmt.Println("Agen xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 	if !atomic.CompareAndSwapInt32(&a.running, 0, 1) {
+		fmt.Println("Agent compare error ................")
 		return
 	}
+	fmt.Println("Start agent 11111111111111111111111")
 	a.quitCh = make(chan struct{})
 	a.workCh = make(chan *Task, 1)
 	go a.loop(a.workCh, a.quitCh)

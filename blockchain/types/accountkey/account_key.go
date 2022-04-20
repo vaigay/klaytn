@@ -109,6 +109,7 @@ func NewAccountKey(t AccountKeyType) (AccountKey, error) {
 }
 
 func ValidateAccountKey(currentBlockNumber uint64, from common.Address, accKey AccountKey, recoveredKeys []*ecdsa.PublicKey, roleType RoleType) error {
+
 	if !accKey.Validate(currentBlockNumber, roleType, recoveredKeys, from) {
 		return errInvalidSignature
 	}

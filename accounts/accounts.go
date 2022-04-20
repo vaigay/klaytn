@@ -116,6 +116,18 @@ type Wallet interface {
 	// the account in a keystore).
 	SignTx(account Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
+	// SignData requests the wallet to sign the hash of the given data
+	// It looks up the account specified either solely via its address contained within,
+	// or optionally with the aid of any location metadata from the embedded URL field.
+	//
+	// If the wallet requires additional authentication to sign the request (e.g.
+	// a password to decrypt the account, or a PIN code to verify the transaction),
+	// an AuthNeededError instance will be returned, containing infos for the user
+	// about which fields or actions are needed. The user may retry by providing
+	// the needed details via SignDataWithPassphrase, or by other means (e.g. unlock
+	// the account in a keystore).
+	SignData(account Account, data []byte) ([]byte, error)
+
 	// SignTxAsFeePayer requests the wallet to sign the given transaction as a fee payer.
 	SignTxAsFeePayer(account Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 

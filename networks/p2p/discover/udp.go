@@ -53,7 +53,7 @@ var (
 
 // Timeouts
 const (
-	respTimeout = 500 * time.Millisecond
+	respTimeout = 5000 * time.Millisecond
 	expiration  = 20 * time.Second
 
 	ntpFailureThreshold = 32               // Continuous timeouts after which to check NTP
@@ -313,6 +313,7 @@ func newUDP(cfg *Config) (Discovery, *udp, error) {
 	var err error
 	udp.Discovery, err = NewDiscovery(cfg)
 	if err != nil {
+		fmt.Println("UDP Discovey rrr")
 		return nil, nil, err
 	}
 	go udp.Discovery.(*Table).loop() // TODO-Klaytn-Node There is only one concrete type(Table) for Discovery. Refactor Discovery interface for their proper objective.
@@ -636,6 +637,11 @@ func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	logger.Trace("[udp] handlePacket", "name", packet.name(), "packet", packet)
 	err = packet.handle(t, from, fromID, hash)
 	// TODO-Klaytn Count Error UDP Packets
+	if err == nil {
+
+	} else {
+		fmt.Println("Error when ", packet.name(), " :: ", err.Error())
+	}
 	udpPacketCounter.Inc(1)
 	return err
 }
@@ -721,6 +727,7 @@ func (req *pong) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 func (req *pong) name() string { return "PONG/v4" }
 
 func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error {
+	fmt.Println("......................................")
 	if expired(req.Expiration) {
 		return errExpired
 	}
@@ -751,6 +758,7 @@ func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte
 			sent = true
 		}
 	}
+	fmt.Println("P node send size: ", len(p.Nodes))
 	if len(p.Nodes) > 0 || !sent {
 		t.send(from, neighborsPacket, &p)
 	}

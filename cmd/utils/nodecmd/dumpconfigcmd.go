@@ -375,7 +375,7 @@ func MakeFullNode(ctx *cli.Context) *node.Node {
 	scfg := makeServiceChainConfig(ctx)
 	scfg.DataDir = cfg.Node.DataDir
 	scfg.Name = cfg.Node.Name
-
+	fmt.Println("Service Chain config: ................222222222............... ", scfg.ServiceChainConsensus)
 	if utils.NetworkTypeFlag.Value == SCNNetworkType && scfg.EnabledSubBridge {
 		cfg.CN.NoAccountCreation = !ctx.GlobalBool(utils.ServiceChainNewAccountFlag.Name)
 		if !cfg.CN.NoAccountCreation {

@@ -310,7 +310,11 @@ func (g *Genesis) ToBlock(baseStateRoot common.Hash, db database.DBManager) *typ
 				continue
 			}
 		}
+		fmt.Println("Address : ", addr.Hex())
 		for key, value := range account.Storage {
+			fmt.Println("--------------------------------------------------------")
+			fmt.Println("Key: ", key.Hex())
+			fmt.Println("Value: ", value.Hex())
 			stateDB.SetState(addr, key, value)
 		}
 		stateDB.AddBalance(addr, account.Balance)
@@ -333,7 +337,8 @@ func (g *Genesis) ToBlock(baseStateRoot common.Hash, db database.DBManager) *typ
 	}
 	stateDB.Commit(false)
 	stateDB.Database().TrieDB().Commit(root, true, g.Number)
-
+	tmp := stateDB.GetState(common.HexToAddress("0x0000000000000000000000000000000000000600"), common.HexToHash("0xbe0011ae967afc8f9c084584bc2d66644df9106ba305d34bd5e8cbde588809f1"))
+	fmt.Println("Hash after commit: ", tmp.Hex())
 	return types.NewBlock(head, nil, nil)
 }
 

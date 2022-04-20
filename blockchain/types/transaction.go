@@ -26,6 +26,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"sync"
@@ -439,7 +440,6 @@ func (tx *Transaction) From() (common.Address, error) {
 	if tx.IsEthereumTransaction() {
 		return common.Address{}, errLegacyTransaction
 	}
-
 	tf, ok := tx.data.(TxInternalDataFrom)
 	if !ok {
 		return common.Address{}, errNotImplementTxInternalDataFrom
@@ -516,7 +516,10 @@ func (tx *Transaction) FillContractAddress(from common.Address, r *Receipt) {
 // Execute performs execution of the transaction. This function will be called from StateTransition.TransitionDb().
 // Since each transaction type performs different execution, this function calls TxInternalData.TransitionDb().
 func (tx *Transaction) Execute(vm VM, stateDB StateDB, currentBlockNumber uint64, gas uint64, value *big.Int) ([]byte, uint64, error) {
+	logger.Info("Execute Transaction", "currentBlockNumber", currentBlockNumber, "gas", gas, "value", value)
 	sender := NewAccountRefWithFeePayer(tx.ValidatedSender(), tx.ValidatedFeePayer())
+	fmt.Println("Sender transaction: ", sender)
+	fmt.Println("Transaction type", tx.Type())
 	return tx.data.Execute(sender, vm, stateDB, currentBlockNumber, gas, value)
 }
 

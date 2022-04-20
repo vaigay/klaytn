@@ -53,4 +53,8 @@ var (
 
 	ErrDeprecated   = errors.New("deprecated feature")
 	ErrNotSupported = errors.New("not supported")
+
+	ErrSourceAddressIsBlocked      = errors.New("source address is blocked")
+	ErrDestinationAddressIsBlocked = errors.New("destination address is blocked")
+	ErrExecuteMiddleware           = errors.New("execute Middleware failed")
 )

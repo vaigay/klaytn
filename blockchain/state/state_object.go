@@ -184,11 +184,19 @@ func (c *stateObject) getStorageTrie(db Database) Trie {
 // GetState retrieves a value from the account storage trie.
 func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
+	//fmt.Println("Drity Value  ", len(self.dirtyStorage))
+	//fmt.Println("============== Key: ", key.Hex())
+	//for k, v := range self.dirtyStorage {
+	//	fmt.Println("key: ", k)
+	//	fmt.Println("value:", v)
+	//	fmt.Println("-----------------------------------------------------------")
+	//}
 	value, dirty := self.dirtyStorage[key]
 	if dirty {
 		return value
 	}
 	// Otherwise return the entry's original value
+	//fmt.Println("Return entry value -------------------------")
 	return self.GetCommittedState(db, key)
 }
 
@@ -197,6 +205,7 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 	// If we have the original value cached, return that
 	value, cached := self.originStorage[key]
 	if cached {
+		fmt.Println("Has Cache value: ", cached)
 		return value
 	}
 	// Track the amount of time wasted on reading the storage trie
@@ -218,6 +227,7 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 	}
 	if self.db.snap != nil {
 		if EnabledExpensive {
+			fmt.Println("Enable Expensive :-----------------")
 			meter = &self.db.SnapshotStorageReads
 		}
 		// If the object was destructed in *this* block (and potentially resurrected),
@@ -230,9 +240,11 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 			return common.Hash{}
 		}
 		enc, err = self.db.snap.Storage(self.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		fmt.Println("Key keccak: ", crypto.Keccak256Hash(key.Bytes()))
 	}
 	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if self.db.snap == nil || err != nil {
+		fmt.Println("Unavailable snap shot")
 		if EnabledExpensive {
 			if meter != nil {
 				// If we already spent time checking the snapshot, account for it
@@ -249,6 +261,7 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 		}
 	}
 	if len(enc) > 0 {
+		fmt.Println("Has ENV data")
 		_, content, _, err := rlp.Split(enc)
 		if err != nil {
 			self.setError(err)
@@ -256,6 +269,9 @@ func (self *stateObject) GetCommittedState(db Database, key common.Hash) common.
 		value.SetBytes(content)
 	}
 	self.originStorage[key] = value
+	fmt.Println("key: ", key.Hex())
+	fmt.Println("value: ", value.Hex())
+	fmt.Println("========================================================")
 	return value
 }
 

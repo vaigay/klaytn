@@ -79,14 +79,17 @@ const (
 	ReceiptStatusErrDeprecated                           = uint(0x1c)
 	ReceiptStatusErrNotSupported                         = uint(0x1d)
 	ReceiptStatusErrInvalidCodeFormat                    = uint(0x1e)
-	ReceiptStatusLast                                    = uint(0x1f) // Last value which is not an actual ReceiptStatus
-//	ReceiptStatusErrInvalidJumpDestination   // TODO-Klaytn-Issue615
-//	ReceiptStatusErrInvalidOpcode            // Default case, because no static message available
-//	ReceiptStatusErrStackUnderflow           // Default case, because no static message available
-//	ReceiptStatusErrStackOverflow            // Default case, because no static message available
-//	ReceiptStatusErrInsufficientBalance      // No receipt available for this error
-//	ReceiptStatusErrTotalTimeLimitReached    // No receipt available for this error
-//	ReceiptStatusErrGasUintOverflow          // TODO-Klaytn-Issue615
+	ReceiptStatusLast                                    = uint(0x1f)
+	ReceiptStatusAddressSourceBlock                      = uint(0x20)
+	ReceiptStatusAddressDestinationBlock                 = uint(0x21)
+	// Last value which is not an actual ReceiptStatus
+	//	ReceiptStatusErrInvalidJumpDestination   // TODO-Klaytn-Issue615
+	//	ReceiptStatusErrInvalidOpcode            // Default case, because no static message available
+	//	ReceiptStatusErrStackUnderflow           // Default case, because no static message available
+	//	ReceiptStatusErrStackOverflow            // Default case, because no static message available
+	//	ReceiptStatusErrInsufficientBalance      // No receipt available for this error
+	//	ReceiptStatusErrTotalTimeLimitReached    // No receipt available for this error
+	//	ReceiptStatusErrGasUintOverflow          // TODO-Klaytn-Issue615
 
 )
 

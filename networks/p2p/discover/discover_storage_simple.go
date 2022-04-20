@@ -17,6 +17,7 @@
 package discover
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -138,6 +139,7 @@ func (s *simpleStorage) doRevalidate() {
 	err := s.tab.ping(oldest.ID, oldest.addr())
 
 	if err != nil {
+		fmt.Println("Error ", err.Error())
 		s.localLogger.Info("Removed the node without any response", "StorageName", s.name(), "NodeID", oldest.ID, "NodeType", nodeTypeName(oldest.NType))
 		s.deleteWithoutLock(oldest)
 		return

@@ -78,6 +78,7 @@ type unlocked struct {
 
 // NewKeyStore creates a keystore for the given directory.
 func NewKeyStore(keydir string, scryptN, scryptP int) *KeyStore {
+	fmt.Println("Plain Normal Key ----------------------------------------")
 	keydir, _ = filepath.Abs(keydir)
 	ks := &KeyStore{storage: &keyStorePassphrase{keydir, scryptN, scryptP, false}}
 	ks.init(keydir)
@@ -87,6 +88,7 @@ func NewKeyStore(keydir string, scryptN, scryptP int) *KeyStore {
 // NewPlaintextKeyStore creates a keystore for the given directory.
 // Deprecated: Use NewKeyStore.
 func NewPlaintextKeyStore(keydir string) *KeyStore {
+	fmt.Println("Plain Text Key +++++++++++++++++++++++++++++++++++++++++++++")
 	keydir, _ = filepath.Abs(keydir)
 	ks := &KeyStore{storage: &keyStorePlain{keydir}}
 	ks.init(keydir)
@@ -109,11 +111,14 @@ func (ks *KeyStore) init(keydir string) {
 		m.cache.close()
 	})
 	// Create the initial list of wallets from the cache
+	fmt.Println("Init key store @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	accs := ks.cache.accounts()
+	fmt.Println("cache account size", len(accs))
 	ks.wallets = make([]accounts.Wallet, len(accs))
 	for i := 0; i < len(accs); i++ {
 		ks.wallets[i] = &keystoreWallet{account: accs[i], keystore: ks}
 	}
+	fmt.Println("unlock size 222222222222222222222cc ", len(ks.unlocked))
 }
 
 // Wallets implements accounts.Backend, returning all single-key wallets from the
@@ -261,13 +266,17 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
-
+	//fmt.Println("Key Store", string(b))
+	//fmt.Println("Unlock Account size", len(ks.unlocked))
+	//fmt.Println("Account Cache", ks.cache.accounts())
+	//fmt.Println("Account Key store", ks.wallets)
 	unlockedKey, found := ks.unlocked[a.Address]
 	if !found {
 		return nil, ErrLocked
 	}
 	// Sign the hash using plain ECDSA operations
-	return crypto.Sign(hash, unlockedKey.GetPrivateKey())
+	b, err := crypto.Sign(hash, unlockedKey.GetPrivateKey())
+	return b, err
 }
 
 // SignTx signs the given transaction with the requested account.
@@ -415,6 +424,7 @@ func (ks *KeyStore) Find(a accounts.Account) (accounts.Account, error) {
 	ks.cache.mu.Lock()
 	a, err := ks.cache.find(a)
 	ks.cache.mu.Unlock()
+	fmt.Println("Find 000000000000000000000000000000000")
 	return a, err
 }
 

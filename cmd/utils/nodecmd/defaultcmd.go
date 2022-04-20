@@ -22,10 +22,6 @@ package nodecmd
 
 import (
 	"fmt"
-	"os"
-	"runtime"
-	"strings"
-
 	"github.com/klaytn/klaytn/accounts"
 	"github.com/klaytn/klaytn/accounts/keystore"
 	"github.com/klaytn/klaytn/api/debug"
@@ -36,6 +32,9 @@ import (
 	"github.com/klaytn/klaytn/node"
 	"github.com/klaytn/klaytn/node/cn"
 	"gopkg.in/urfave/cli.v1"
+	"os"
+	"runtime"
+	"strings"
 )
 
 const (
@@ -62,7 +61,6 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 
 	// Start up the node itself
 	utils.StartNode(stack)
-
 	// Register wallet event handlers to open and auto-derive wallets
 	events := make(chan accounts.WalletEvent, 16)
 	stack.AccountManager().Subscribe(events)
@@ -104,13 +102,6 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 		}
 	}()
-
-	if utils.NetworkTypeFlag.Value == SCNNetworkType && utils.ServiceChainConsensusFlag.Value == "clique" {
-		logger.Crit("using clique consensus type is not allowed anymore!")
-	} else {
-		startKlaytnAuxiliaryService(ctx, stack)
-	}
-
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
@@ -121,9 +112,16 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			UnlockAccount(ctx, ks, trimmed, i, passwords)
 		}
 	}
+	if utils.NetworkTypeFlag.Value == SCNNetworkType && utils.ServiceChainConsensusFlag.Value == "clique" {
+		logger.Crit("using clique consensus type is not allowed anymore!")
+	} else {
+		startKlaytnAuxiliaryService(ctx, stack)
+	}
+
 }
 
 func startKlaytnAuxiliaryService(ctx *cli.Context, stack *node.Node) {
+	fmt.Println("startKlaytnAuxiliaryService11111111111111111111111111111")
 	var cn *cn.CN
 	if err := stack.Service(&cn); err != nil {
 		log.Fatalf("Klaytn service not running: %v", err)

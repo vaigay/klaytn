@@ -21,6 +21,7 @@
 package keystore
 
 import (
+	"github.com/klaytn/klaytn/crypto"
 	"math/big"
 
 	"github.com/klaytn/klaytn"
@@ -96,6 +97,10 @@ func (w *keystoreWallet) SignHash(account accounts.Account, hash []byte) ([]byte
 	}
 	// Account seems valid, request the keystore to sign
 	return w.keystore.SignHash(account, hash)
+}
+
+func (w *keystoreWallet) SignData(account accounts.Account, data []byte) ([]byte, error) {
+	return w.SignHash(account, crypto.Keccak256(data))
 }
 
 // SignTx implements accounts.Wallet, attempting to sign the given transaction

@@ -619,9 +619,15 @@ func opMstore8(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 }
 
 func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	//logger.Info("Op Sload ::::::::::::::::::::")
 	loc := stack.Peek()
 	val := evm.StateDB.GetState(contract.Address(), common.BigToHash(loc))
 	loc.SetBytes(val.Bytes())
+
+	//data := stack.Data()
+	//for i, value := range data {
+	//fmt.Printf("---------- Data stack index %v, value %v\n ", i, common.BigToHash(value).Hex())
+	//}
 	return nil, nil
 }
 

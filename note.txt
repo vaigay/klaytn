@@ -1,0 +1,4 @@
+homi  setup local --clique --cn-num 1 --chainID 123 --governance
+
+kcn --datadir ~/cn/node1 init ~/cn/homi-output/scripts/genesis.json
+kcn --networkid 123 --datadir node1/ --keystore ~/cn/homi-output/keys --rewardbase b13905dad473e994ebf3c2ba4e7441734b39790a

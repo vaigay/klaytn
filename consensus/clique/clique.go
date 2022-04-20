@@ -23,6 +23,8 @@ package clique
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -111,7 +113,7 @@ var (
 	// list of signers different than the one the local node calculated.
 	errMismatchingCheckpointSigners = errors.New("mismatching signer list on checkpoint block")
 
-	// errInvalidBlockScore is returned if the blockScore of a block neither 1 or 2.
+	// errInvalidBlockScore iAuthorize(signer common.Address, signFn SignerFn)s returned if the blockScore of a block neither 1 or 2.
 	errInvalidBlockScore = errors.New("invalid blockscore")
 
 	// errWrongBlockScore is returned if the blockScore of a block doesn't match the
@@ -169,6 +171,28 @@ func sigHash(header *types.Header) (hash common.Hash) {
 	return hash
 }
 
+// SealHash returns the hash of a block prior to it being sealed.
+//func SealHash(header *types.Header) (hash common.Hash) {
+//	hasher := sha3.NewKeccak256()
+//	sigHash(hasher, header)
+//	hasher.Sum(hash[:])
+//	return hash
+//}
+
+//
+//// CliqueRLP returns the rlp bytes which needs to be signed for the proof-of-authority
+//// sealing. The RLP to sign consists of the entire header apart from the 65 byte signature
+//// contained at the end of the extra data.
+////
+//// Note, the method requires the extra data to be at least 65 bytes, otherwise it
+//// panics. This is done to avoid accidentally using both forms (signature present
+//// or not), which could be abused to produce different hashes for the same header.
+//func CliqueRLP(header *types.Header) []byte {
+//	b := new(bytes.Buffer)
+//	encodeSigHeader(b, header)
+//	return b.Bytes()
+//}
+
 // ecrecover extracts the Klaytn account address from a signed header.
 func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
 	// If the signature's already cached, return that
@@ -183,7 +207,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	signature := header.Extra[len(header.Extra)-ExtraSeal:]
 
 	// Recover the public key and the Klaytn address
-	pubkey, err := crypto.Ecrecover(sigHash(header).Bytes(), signature)
+	pubkey, err := crypto.Ecrecover(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -215,7 +239,7 @@ type Clique struct {
 
 // New creates a Clique proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
-func New(config *params.CliqueConfig, db database.DBManager) *Clique {
+func New(rewardbase common.Address, config *params.CliqueConfig, db database.DBManager) *Clique {
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {
@@ -230,6 +254,7 @@ func New(config *params.CliqueConfig, db database.DBManager) *Clique {
 		db:         db,
 		recents:    recents,
 		signatures: signatures,
+		signer:     rewardbase,
 		proposals:  make(map[common.Address]bool),
 	}
 }
@@ -386,22 +411,24 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 				break
 			}
 		}
+
 		// If we're at block zero, make a snapshot
 		if number == 0 {
-			genesis := chain.GetHeaderByNumber(0)
-			if err := c.VerifyHeader(chain, genesis, false); err != nil {
-				return nil, err
+			checkpoint := chain.GetHeaderByNumber(number)
+			if checkpoint != nil {
+				hash := checkpoint.Hash()
+				signers := make([]common.Address, (len(checkpoint.Extra)-ExtraVanity-ExtraSeal)/common.AddressLength)
+				for i := 0; i < len(signers); i++ {
+					copy(signers[i][:], checkpoint.Extra[ExtraVanity+i*common.AddressLength:])
+				}
+				fmt.Println("First signer ", signers)
+				snap = newSnapshot(c.config, c.signatures, number, hash, signers)
+				if err := snap.store(c.db); err != nil {
+					return nil, err
+				}
+				logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+				break
 			}
-			signers := make([]common.Address, (len(genesis.Extra)-ExtraVanity-ExtraSeal)/common.AddressLength)
-			for i := 0; i < len(signers); i++ {
-				copy(signers[i][:], genesis.Extra[ExtraVanity+i*common.AddressLength:])
-			}
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
-			if err := snap.store(c.db); err != nil {
-				return nil, err
-			}
-			logger.Trace("Stored genesis voting snapshot to disk")
-			break
 		}
 		// No snapshot for this header, gather the header and move backward
 		var header *types.Header
@@ -428,6 +455,7 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 	}
 	snap, err := snap.apply(headers)
 	if err != nil {
+		fmt.Println("Error when applyyyyyyyyyyyyyyyyyy")
 		return nil, err
 	}
 	c.recents.Add(snap.Hash, snap)
@@ -435,6 +463,7 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 	// If we've generated a new checkpoint snapshot, save to disk
 	if snap.Number%checkpointInterval == 0 && len(headers) > 0 {
 		if err = snap.store(c.db); err != nil {
+			fmt.Println("Error when storeorrrrrrrrrrrrrr")
 			return nil, err
 		}
 		logger.Trace("Stored voting snapshot to disk", "number", snap.Number, "hash", snap.Hash)
@@ -471,6 +500,7 @@ func (c *Clique) verifySeal(chain consensus.ChainReader, header *types.Header, p
 		return err
 	}
 	if _, ok := snap.Signers[signer]; !ok {
+		fmt.Println()
 		return errUnauthorizedSigner
 	}
 	for seen, recent := range snap.Recents {
@@ -498,10 +528,12 @@ func (c *Clique) verifySeal(chain consensus.ChainReader, header *types.Header, p
 // header for running the transactions on top.
 func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
+	//fmt.Println("ggggggggggggggggggxxxxxxxxxxxxxxxxxx")
 	number := header.Number.Uint64()
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
+		fmt.Println("Error when snapshot in prepare")
 		return err
 	}
 	if number%c.config.Epoch != 0 {
@@ -578,7 +610,8 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
+	fmt.Println("Authorize Signer", signer)
+	fmt.Println("Authorize SignFn", signFn)
 	c.signer = signer
 	c.signFn = signFn
 }
@@ -638,13 +671,45 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, stop <-ch
 	case <-time.After(delay):
 	}
 	// Sign all the things!
-	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	sighash, err := signFn(accounts.Account{Address: signer}, CliqueRLP(header))
+	//sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
 	if err != nil {
 		return nil, err
 	}
 	copy(header.Extra[len(header.Extra)-ExtraSeal:], sighash)
 
 	return block.WithSeal(header), nil
+}
+
+func SealHash(header *types.Header) (hash common.Hash) {
+	hasher := sha3.NewKeccak256()
+	encodeSigHeader(hasher, header)
+	hasher.Sum(hash[:0])
+	return hash
+}
+
+func CliqueRLP(header *types.Header) []byte {
+	b := new(bytes.Buffer)
+	encodeSigHeader(b, header)
+	return b.Bytes()
+}
+
+func encodeSigHeader(w io.Writer, header *types.Header) {
+	enc := []interface{}{
+		header.ParentHash,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.BlockScore,
+		header.Number,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:len(header.Extra)-crypto.SignatureLength], // Yes, this will panic if extra is too short
+	}
+	if err := rlp.Encode(w, enc); err != nil {
+		panic("can't encode: " + err.Error())
+	}
 }
 
 // CalcBlockScore is the blockScore adjustment algorithm. It returns the blockScore

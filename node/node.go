@@ -187,7 +187,9 @@ func (n *Node) Start() error {
 	if n.serverConfig.NodeDatabase == "" {
 		n.serverConfig.NodeDatabase = n.config.NodeDB()
 	}
-
+	fmt.Println("0o0000000000000000000000000000000000")
+	fmt.Println("Node key", n.serverConfig.PrivateKey)
+	fmt.Println("Node name", n.serverConfig.Name)
 	p2pServer := p2p.NewServer(n.serverConfig)
 	n.logger.Info("Starting peer-to-peer node", "instance", n.serverConfig.Name)
 
@@ -213,6 +215,7 @@ func (n *Node) Start() error {
 		}
 	}
 	if err := p2pServer.Start(); err != nil {
+		fmt.Println("Npde Start rrrrrrrrrrrrrrr")
 		return convertFileLockError(err)
 	}
 
@@ -692,6 +695,7 @@ func (n *Node) Service(service interface{}) error {
 	element := reflect.ValueOf(service).Elem()
 	if running, ok := n.services[element.Type()]; ok {
 		element.Set(reflect.ValueOf(running))
+		fmt.Printf("running: %T\n", running)
 		return nil
 	}
 	return ErrServiceUnknown

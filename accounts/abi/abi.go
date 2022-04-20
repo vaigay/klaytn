@@ -73,6 +73,9 @@ func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
 		return arguments, nil
 	}
 	method, exist := abi.Methods[name]
+	for k, v := range abi.Methods {
+		fmt.Printf("Key: %v, Value: %v", k, v)
+	}
 	if !exist {
 		return nil, fmt.Errorf("method '%s' not found", name)
 	}

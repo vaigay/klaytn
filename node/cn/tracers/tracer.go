@@ -196,6 +196,7 @@ type dbWrapper struct {
 // pushObject assembles a JSVM object wrapping a swappable database and pushes it
 // onto the VM stack.
 func (dw *dbWrapper) pushObject(vm *duktape.Context) {
+	fmt.Println("Push Object ----------------")
 	obj := vm.PushObject()
 
 	// Push the wrapper for statedb.GetBalance
